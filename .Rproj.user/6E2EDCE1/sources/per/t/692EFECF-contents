@@ -1,0 +1,220 @@
+#### WELCOME TO DESCRIPTIVE STATISTICS
+### LOADING PACKAGES
+pacman::p_load(
+  rio,          # File import
+  here,         # File locator
+  skimr,        # get overview of data
+  tidyverse,    # data management + ggplot2 graphics 
+  gtsummary,    # summary statistics and tests
+  rstatix,      # summary statistics and statistical tests
+  janitor,      # adding totals and percents to tables
+  scales,       # easily convert proportions to percents  
+  flextable     # converting tables to pretty images
+)
+
+installr::updateR()
+
+install.packages('BiocManager')
+
+install.packages('tinytex')
+tinytex::install_tinytex()
+# to uninstall TinyTeX, run tinytex::uninstall_tinytex()
+
+here()
+
+## LETS IMPORT OUR DATASET
+# import the linelist
+linelist <- import("linelist_cleaned.rds")
+
+skim(linelist)
+
+### NOW, LETS PERFORM THE SUMMARY STATISTICS
+summary(linelist$age_years)
+
+summary(linelist$age_years)[[2]]            # return only the 2nd element
+
+# equivalent, alternative to above by element name
+# summary(linelist$age_years)[["1st Qu."]]  
+
+#### LETS PERFORM THE STATZ AND RETURN IT IN A DATA FRAME FORMAT USING THE get_summary_stats
+linelist %>% 
+  get_summary_stats(
+    age, wt_kg, ht_cm, ct_blood, temp,  # columns to calculate for
+    type = "common")                    # summary stats to return
+
+### LETS USE THE JANITOR PACKAGE, WITH THE TABYL FUNCTION
+linelist %>% tabyl(age_cat)
+
+linelist %>% tabyl(age_cat, show_na = FALSE) ## THIS IS TO REMOVE THE MISSING VALUES AND RECALCULATE
+linelist %>% tabyl(age_cat, outcome, gender) ### TO SHOW MULTIPLE COLUMN TABLE
+
+
+### LETS LOOK AT CROSS TABULATION, USING THE TABYL() FUNCTION
+linelist %>% tabyl(age_cat, gender)
+
+### NOW, LETS ADD SOME ADORNMENTS
+linelist %>%               # case linelist
+  tabyl(age_cat) %>%       # tabulate counts and proportions by age category
+  adorn_pct_formatting()   # convert proportions to percents
+
+### A cross-tabulation with a total row and row percents
+
+linelist %>%                                  
+  tabyl(age_cat, gender) %>%                  # counts by age and gender
+  adorn_totals(where = "row") %>%             # add total row
+  adorn_percentages(denominator = "row") %>%  # convert counts to proportions
+  adorn_pct_formatting(digits = 1)            # convert proportions to percents
+
+### A cross-tabulation adjusted so that both counts and percents are displayed.
+linelist %>%                                  # case linelist
+  tabyl(age_cat, gender) %>%                  # cross-tabulate counts
+  adorn_totals(where = "row") %>%             # add a total row
+  adorn_percentages(denominator = "col") %>%  # convert to proportions
+  adorn_pct_formatting() %>%                  # convert to percents
+  adorn_ns(position = "front") %>%            # display as: "count (percent)"
+  adorn_title(                                # adjust titles
+    row_name = "Age Category",
+    col_name = "Gender")
+
+###A cross-tabulation adjusted so that both counts and percents are displayed, where missing values are removed using show.na = FALSE
+linelist %>%                                  # case linelist
+  tabyl(age_cat, gender, show_na = FALSE) %>%                  # cross-tabulate counts, remove the missing values
+  adorn_totals(where = "row") %>%             # add a total row
+  adorn_percentages(denominator = "col") %>%  # convert to proportions
+  adorn_pct_formatting() %>%                  # convert to percents
+  adorn_ns(position = "front") %>%            # display as: "count (percent)"
+  adorn_title(                                # adjust titles
+    row_name = "Age Category",
+    col_name = "Gender")
+
+### NOW, LETS PRINT THE TABLE
+
+pacman::p_load(installr)
+installr::updateR()
+pacman::p_load(flextable)
+
+
+linelist %>%
+  tabyl(age_cat, gender) %>% 
+  adorn_totals(where = "col") %>% 
+  adorn_percentages(denominator = "col") %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns(position = "front") %>% 
+  adorn_title(
+    row_name = "Age Category",
+    col_name = "Gender",
+    placement = "combined") %>% # this is necessary to print as image
+  flextable::flextable() %>%    # convert to pretty image
+  flextable::autofit()          # format to one line per row
+
+
+### Use on other tables
+linelist %>% 
+  count(hospital) %>%   # dplyr function
+  adorn_totals()        # janitor function
+
+### Saving the tabyl
+linelist %>%
+  tabyl(age_cat, gender) %>% 
+  adorn_totals(where = "col") %>% 
+  adorn_percentages(denominator = "col") %>% 
+  adorn_pct_formatting() %>% 
+  adorn_ns(position = "front") %>% 
+  adorn_title(
+    row_name = "Age Category",
+    col_name = "Gender",
+    placement = "combined") %>% 
+  flextable::flextable() %>%                     # convert to image
+  flextable::autofit() %>%                       # ensure only one line per row
+  flextable::save_as_docx(path = "tabyl.docx")   # save as Word document to filepath
+
+### LETS DO CHI-SQUARE
+age_by_outcome <- linelist %>% 
+  tabyl(age_cat, outcome, show_na = FALSE) 
+
+chisq.test(age_by_outcome)
+
+
+#### USING THE DLPYR FUNCTION
+
+linelist %>%                 # begin with linelist
+  summarise(n_rows = n())    # return new summary dataframe with column n_rows
+
+
+linelist %>% 
+  group_by(age_cat) %>%     # group data by unique values in column age_cat
+  summarise(n_rows = n())   # return number of rows *per group*
+
+linelist %>% 
+  count(age_cat)     ### THE ABOVE COMMANDS CAN BE SHORTENED WITH THE COUNT() FUNCTION
+
+linelist %>%       ### Tabulating counts of two or more grouping columns are still returned in “long”
+  count(age_cat, outcome)
+
+
+linelist %>%       ### Tabulating counts of two or more grouping columns are still returned in “long”
+  count(age_cat, outcome)
+
+### To easily display percents, you can wrap the proportion in the function
+age_summary <- linelist %>% 
+  count(age_cat) %>%                     # group and count by gender (produces "n" column)
+  mutate(                                # create percent of column - note the denominator
+    percent = scales::percent(n / sum(n))) 
+
+# print
+age_summary
+
+
+###   method to calculate proportions within groups
+age_by_outcome <- linelist %>%                  # begin with linelist
+  group_by(outcome) %>%                         # group by outcome 
+  count(age_cat) %>%                            # group and count by age_cat, and then remove age_cat grouping
+  mutate(percent = scales::percent(n / sum(n))) # calculate percent - note the denominator is by outcome group
+
+### LETS PLOT A VERY NICE STACKED BAR CHART
+linelist %>%                      # begin with linelist
+  count(age_cat, outcome) %>%     # group and tabulate counts by two columns
+  ggplot()+                       # pass new data frame to ggplot
+  geom_col(                     # create bar plot
+    mapping = aes(   
+      x = outcome,              # map outcome to x-axis
+      fill = age_cat,           # map age_cat to the fill
+      y = n))                   # map the counts column `n` to the height
+
+### Data are summarised to describe the days delay from symptom onset 
+### to hospital admission (column days_onset_hosp), by hospital
+summary_table <- linelist %>%                                        # begin with linelist, save out as new object
+  group_by(hospital) %>%                                             # group all calculations by hospital
+  summarise(                                                         # only the below summary columns will be returned
+    cases       = n(),                                                # number of rows per group
+    delay_max   = max(days_onset_hosp, na.rm = T),                    # max delay
+    delay_mean  = round(mean(days_onset_hosp, na.rm=T), digits = 1),  # mean delay, rounded
+    delay_sd    = round(sd(days_onset_hosp, na.rm = T), digits = 1),  # standard deviation of delays, rounded
+    delay_3     = sum(days_onset_hosp >= 3, na.rm = T),               # number of rows with delay of 3 or more days
+    pct_delay_3 = scales::percent(delay_3 / cases)                    # convert previously-defined delay column to percent 
+  )
+
+summary_table  # print
+
+### CONDITIONAL STATISTICS
+linelist %>% 
+  group_by(hospital) %>% 
+  summarise(
+    max_temp_fvr = max(temp[fever == "yes"], na.rm = T),
+    max_temp_no = max(temp[fever == "no"], na.rm = T)
+  )
+
+
+
+
+### SUMMARY TABLE USING THE gtsummary package
+pacman::p_load(dplyr, gtsummary)
+
+
+
+library(gtsummary)
+
+
+linelist %>% 
+  select(age_years, gender, outcome, fever, temp, hospital) %>%  # keep only the columns of interest
+  tbl_summary()                                                  # default
